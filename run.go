@@ -1,8 +1,10 @@
-package main
+package slsm
+
+import "github.com/liwnn/skiplist"
 
 type Run interface {
 	GetElementsNum() uint64
-	InsertKey(key int, value int)
+	InsertKey(key KVPair)
 	SetSize(size uint64)
 	GetAll() []KVPair
 	GetMin() int
@@ -11,34 +13,25 @@ type Run interface {
 	GetAllInRange(key1, key2 int) []KVPair
 }
 
-type CmpInt struct{}
-
-func (CmpInt) Compare(a, b interface{}) int {
-	l, r := a.(int), b.(int)
-	if l < r {
-		return -1
-	}
-	if l == r {
-		return 0
-	}
-	return 1
-}
-
 type KVPair struct {
 	Key   int
 	Value int
 }
 
+func (kv KVPair) Less(than skiplist.Item) bool {
+	return kv.Key < than.(KVPair).Key
+}
+
 // MemRun 内存run
 type MemRun struct {
-	sl       *SkipList
+	sl       *skiplist.SkipList
 	min, max int
 	size     int
 }
 
 func NewMemRun(minKey, maxKey int) *MemRun {
 	return &MemRun{
-		sl:  NewSkipList(&CmpInt{}),
+		sl:  skiplist.New(),
 		min: minKey,
 		max: maxKey,
 	}
@@ -48,15 +41,15 @@ func (r *MemRun) SetSize(size uint64) {
 	//_maxSize = size
 }
 
-func (r *MemRun) InsertKey(key int, value int) {
-	if key > r.max {
-		r.max = key
-	} else if key < r.min {
-		r.min = key
+func (r *MemRun) InsertKey(kv KVPair) {
+	if kv.Key > r.max {
+		r.max = kv.Key
+	} else if kv.Key < r.min {
+		r.min = kv.Key
 	}
 
-	r.sl.Insert(key, value)
-	if value != TOMBSTONE {
+	r.sl.Insert(kv)
+	if kv.Value != TOMBSTONE {
 		r.size++
 	} else {
 		r.size--
@@ -69,10 +62,8 @@ func (r *MemRun) GetElementsNum() uint64 {
 
 func (r *MemRun) GetAll() []KVPair {
 	vec := make([]KVPair, 0, r.sl.Len())
-	it := NewIterator(r.sl)
-	for it.SeekToFirst(); it.Valid(); it.Next() {
-		kv := KVPair{Key: it.Key().(int), Value: it.Value().(int)}
-		vec = append(vec, kv)
+	for it := r.sl.NewIterator(); it.Valid(); it.Next() {
+		vec = append(vec, it.Value().(KVPair))
 	}
 
 	return vec
@@ -86,11 +77,11 @@ func (r MemRun) GetMax() int {
 }
 
 func (r MemRun) Lookup(key int) (int, bool) {
-	e, ok := r.sl.Search(key)
-	if !ok {
+	item := r.sl.Search(KVPair{Key: key})
+	if item == nil {
 		return -1, false
 	}
-	return e.(int), true
+	return item.(KVPair).Value, true
 }
 
 func (r MemRun) GetAllInRange(key1, key2 int) []KVPair {
@@ -99,14 +90,11 @@ func (r MemRun) GetAllInRange(key1, key2 int) []KVPair {
 	}
 
 	vec := make([]KVPair, 0, 8)
-	it := NewIterator(r.sl)
-	for it.SeekToFirst(); it.Valid() && it.IsLessThan(key1); it.Next() {
+	it := r.sl.NewIterator()
+	for ; it.Valid() && it.Value().Less(KVPair{Key: key1}); it.Next() {
 	}
-	for ; it.Valid() && it.IsLessThan(key2); it.Next() {
-		vec = append(vec, KVPair{
-			Key:   it.Key().(int),
-			Value: it.Value().(int),
-		})
+	for ; it.Valid() && it.Value().Less(KVPair{Key: key2}); it.Next() {
+		vec = append(vec, it.Value().(KVPair))
 	}
 	return vec
 }

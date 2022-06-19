@@ -1,4 +1,4 @@
-package main
+package slsm
 
 import (
 	"fmt"
@@ -79,7 +79,7 @@ func (lsm *LSM) InsertKey(key int, value int) {
 		lsm.doMerge()
 	}
 
-	lsm.C0[lsm.activeRun].InsertKey(key, value)
+	lsm.C0[lsm.activeRun].InsertKey(KVPair{key, value})
 	lsm.filters[lsm.activeRun].Add(encodeInt(key))
 }
 

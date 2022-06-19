@@ -11,11 +11,13 @@ import (
 	"time"
 
 	_ "net/http/pprof"
+
+	"github.com/liwnn/slsm"
 )
 
 func main() {
 	//insertLoopupTest()
-	lsm := NewLSM(800, 20, 1.0, 0.00100, 1024, 20)
+	lsm := slsm.NewLSM(800, 20, 1.0, 0.00100, 1024, 20)
 	defer lsm.Close()
 
 	fmt.Println("LSM Tree DSL Interactive Mode")
@@ -31,7 +33,7 @@ func main() {
 	}
 }
 
-func queryLine(lsm *LSM, line string) {
+func queryLine(lsm *slsm.LSM, line string) {
 	cmds := strings.FieldsFunc(line, func(r rune) bool {
 		return r == ' '
 	})
@@ -78,7 +80,7 @@ func insertLoopupTest() {
 	var pageSize uint32 = 512
 	var disk_runs_per_level = 20
 	var merge_fraction = 1.0
-	lsmTree := NewLSM(buffer_capacity, num_runs, merge_fraction, bf_fp, pageSize, disk_runs_per_level)
+	lsmTree := slsm.NewLSM(buffer_capacity, num_runs, merge_fraction, bf_fp, pageSize, disk_runs_per_level)
 
 	to_insert := make([]int, 0, 10)
 	for i := 0; i < num_inserts; i++ {
